@@ -14,4 +14,8 @@
 
 ## Features
 
--   TODO
+1.安装环境
+
+```bash
+conda env create -f env.yml
+```
