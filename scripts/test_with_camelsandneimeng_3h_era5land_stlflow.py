@@ -1,10 +1,10 @@
 """
 Author: Shuolong Xu
 Date: 2024-04-17 12:55:24
-LastEditTime: 2024-12-12 10:22:20
+LastEditTime: 2024-12-14 16:06:58
 LastEditors: Wenyu Ouyang
 Description:
-FilePath: /HydroNeimeng/scripts/train_with_camels_3h_era5land_stlflow.py
+FilePath: /HydroNeimeng/scripts/test_with_camelsandneimeng_3h_era5land_stlflow.py
 Copyright (c) 2021-2024 Wenyu Ouyang. All rights reserved.
 """
 
@@ -13,7 +13,7 @@ import os.path
 import pathlib
 
 import pandas as pd
-import pytest
+import sys
 import hydrodatasource.configs.config as hdscc
 import xarray as xr
 import torch.multiprocessing as mp
@@ -23,7 +23,11 @@ from torchhydro.configs.config import cmd, default_config_file, update_cfg
 from torchhydro.trainers.deep_hydro import train_worker
 from torchhydro.trainers.trainer import train_and_evaluate
 
-# from torchhydro.trainers.trainer import train_and_evaluate, ensemble_train_and_evaluate
+# Get the project directory of the py file
+project_dir = os.path.abspath("")
+# import the module using a relative path
+sys.path.append(project_dir)
+from definitions import DATASET_DIR, RESULT_DIR
 
 logging.basicConfig(level=logging.INFO)
 for logger_name in logging.root.manager.loggerDict:
@@ -31,19 +35,33 @@ for logger_name in logging.root.manager.loggerDict:
     logger.setLevel(logging.INFO)
 
 show = pd.read_csv(
-    os.path.join(
-        pathlib.Path(__file__).parent.parent, "gage_ids/basin_us_and_neimeng.csv"
-    ),
+    os.path.join(pathlib.Path(__file__).parent.parent, "gage_ids/basin_neimenggu.csv"),
     dtype={"id": str},
 )
 gage_id = show["id"].values.tolist()
 # gage_id = ["songliao_21401550", "songliao_21401050"]
+DEVICE = 0
 
 
 def config():
     # 设置测试所需的项目名称和默认配置文件
+    # project_name = os.path.join(
+    #     "test_with_era5land", "test_with_camelsandneimeng_3h_era5land_stlflow_2015"
+    # )
+    # project_name = os.path.join(
+    #     "test_with_era5land", "test_with_camelsandneimeng_3h_era5land_stlflow_2016"
+    # )
+    # project_name = os.path.join(
+    #     "test_with_era5land", "test_with_camelsandneimeng_3h_era5land_stlflow_2017"
+    # )
+    # project_name = os.path.join(
+    #     "test_with_era5land", "test_with_camelsandneimeng_3h_era5land_stlflow_2018"
+    # )
+    # project_name = os.path.join(
+    #     "test_with_era5land", "test_with_camelsandneimeng_3h_era5land_stlflow_2019"
+    # )
     project_name = os.path.join(
-        "train_with_era5land", "train_with_camelsandneimeng_3h_era5land_stlflow"
+        "test_with_era5land", "test_with_camelsandneimeng_3h_era5land_stlflow_2020"
     )
     config_data = default_config_file()
 
@@ -52,12 +70,12 @@ def config():
         sub=project_name,
         source_cfgs={
             "source_name": "selfmadehydrodataset",
-            "source_path": SETTING["local_data_path"]["datasets-interim"],
+            "source_path": DATASET_DIR,
             "other_settings": {
                 "time_unit": ["3h"],
             },
         },
-        ctx=[1],
+        ctx=[DEVICE],
         model_name="Seq2Seq",
         model_hyperparam={
             "en_input_size": 16,
@@ -104,14 +122,23 @@ def config():
         scaler="DapengScaler",
         train_epoch=100,
         save_epoch=1,
-        train_period=["2015-06-01-01", "2022-11-01-01"],
-        test_period=["2022-11-01-01", "2023-12-01-01"],
-        valid_period=["2022-11-01-01", "2023-12-01-01"],
+        # test_period=["2015-06-01-01", "2015-10-31-01"],
+        # test_period=["2015-10-31-01", "2016-10-31-01"],
+        # test_period=["2016-10-31-01", "2017-10-31-01"],
+        # test_period=["2017-10-31-01", "2018-10-31-01"],
+        # test_period=["2018-10-31-01", "2019-10-31-01"],
+        test_period=["2019-10-31-01", "2020-10-31-01"],
+        train_mode=False,
+        stat_dict_file=os.path.join(
+            RESULT_DIR,
+            "train_with_camelsandneimeng_3h_era5land_stlflow",
+            "dapengscaler_stat.json",
+        ),
         loss_func="MultiOutLoss",
         loss_param={
             "loss_funcs": "RMSESum",
             "data_gap": [0],
-            "device": [1],
+            "device": [DEVICE],
             "item_weight": [1],
         },
         opt="Adam",
@@ -129,6 +156,12 @@ def config():
         # },
         patience=10,
         model_type="MTL",
+        weight_path=os.path.join(
+            RESULT_DIR,
+            "train_with_camelsandneimeng_3h_era5land_stlflow",
+            "best_model.pth",
+        ),
+        continue_train=False,
     )
 
     # 更新默认配置

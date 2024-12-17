@@ -1,3 +1,11 @@
+"""
+Author: silencesoup silencesoup@outlook.com
+Date: 2024-12-14 13:27:00
+LastEditors: silencesoup silencesoup@outlook.com
+LastEditTime: 2024-12-14 13:38:54
+FilePath: /HydroNeimeng/events.py
+Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+"""
 
 import numpy as np
 import pandas as pd
@@ -6,7 +14,7 @@ from pint import UnitRegistry
 from sklearn.model_selection import KFold
 import xarray as xr
 from hydrodatasource.cleaner.dmca_esr import rainfall_runoff_event_identify
-
+from definitions import DATASET_DIR, PROJECT_DIR, RESULT_DIR
 import xarray as xr
 import os
 
@@ -38,7 +46,7 @@ def get_rr_events(rain, flow, basin_name):
         multiple = num * 24
     else:
         raise ValueError(f"Unsupported unit: {unit}")
-    # print(f"flow.units = {flow.units}, multiple = {multiple}")
+    print(f"flow.units = {flow.units}, multiple = {multiple}")
 
     rr_events = {}
     try:
@@ -93,7 +101,7 @@ def split_events_based_on_time_units(basin_ids, time_unit="1h"):
         if os.path.splitext(csv_file_name)[0] in basin_ids
         and csv_file_name.endswith(".csv")
     ]
-    # print(basin_ids) 
+    print(basin_ids)
     for csv_file_name in selected_files:
         basin_name = os.path.splitext(csv_file_name)[0]
         csv_file_path = os.path.join(csv_folder_path, csv_file_name)
@@ -124,10 +132,8 @@ def split_events_based_on_time_units(basin_ids, time_unit="1h"):
 
         all_events_df.to_csv(output_file)
 
+
 if __name__ == "__main__":
-    PROJECT_DIR  = '/home/zlh/HydroNeimeng'
-    DATASET_DIR  = '/ftproot/basins-neimenggu/'
-    RESULT_DIR   =  '/home/zlh/HydroNeimeng/events/'
     basin_ids = pd.read_csv(
         os.path.join(PROJECT_DIR, "gage_ids/basin_neimenggu.csv"),
         dtype={"id": str},

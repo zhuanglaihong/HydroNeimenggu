@@ -1,10 +1,10 @@
 """
 Author: Wenyu Ouyang
 Date: 2024-04-17 12:55:24
-LastEditTime: 2024-11-05 11:40:28
+LastEditTime: 2024-12-14 17:10:04
 LastEditors: Wenyu Ouyang
 Description:
-FilePath: \torchhydro\experiments\train_with_era5land.py
+FilePath: /HydroNeimeng/scripts/train_with_camels_1D_era5land_mtlflowssm.py
 Copyright (c) 2021-2024 Wenyu Ouyang. All rights reserved.
 """
 
@@ -13,7 +13,7 @@ import os.path
 import pathlib
 
 import pandas as pd
-import pytest
+import sys
 import hydrodatasource.configs.config as hdscc
 import xarray as xr
 import torch.multiprocessing as mp
@@ -23,7 +23,8 @@ from torchhydro.configs.config import cmd, default_config_file, update_cfg
 from torchhydro.trainers.deep_hydro import train_worker
 from torchhydro.trainers.trainer import train_and_evaluate
 
-# from torchhydro.trainers.trainer import train_and_evaluate, ensemble_train_and_evaluate
+sys.path.append(os.path.dirname(pathlib.Path(os.path.abspath(__file__)).parent))
+from definitions import DATASET_DIR, RESULT_DIR
 
 logging.basicConfig(level=logging.INFO)
 for logger_name in logging.root.manager.loggerDict:
@@ -36,12 +37,13 @@ show = pd.read_csv(
 )
 gage_id = show["id"].values.tolist()
 # gage_id = ["songliao_21401550", "songliao_21401050"]
+DEVICE = 0
 
 
 def config():
     # 设置测试所需的项目名称和默认配置文件
     project_name = os.path.join(
-        "train_with_era5land", "train_with_camels_1D_era5land_mtlflowssm_rho120"
+        "train_with_era5land", "train_with_camels_1D_era5land_mtlflowssm"
     )
     config_data = default_config_file()
 
@@ -50,11 +52,12 @@ def config():
         sub=project_name,
         source_cfgs={
             "source_name": "selfmadehydrodataset",
-            "source_path": SETTING["local_data_path"]["datasets-interim"],
-            "other_settings": {"time_unit": ["1D"],
+            "source_path": DATASET_DIR,
+            "other_settings": {
+                "time_unit": ["1D"],
             },
         },
-        ctx=[1],
+        ctx=[DEVICE],
         model_name="Seq2Seq",
         model_hyperparam={
             "en_input_size": 17,
@@ -69,7 +72,7 @@ def config():
         gage_id=gage_id,
         # gage_id=["21400800", "21401550", "21401300", "21401900"],
         batch_size=256,
-        forecast_history=120,
+        forecast_history=365,
         forecast_length=1,
         min_time_unit="D",
         min_time_interval=1,
@@ -97,7 +100,7 @@ def config():
         ],
         var_out=["streamflow", "sm_surface"],
         dataset="Seq2SeqDataset",
-        sampler="BasinBatchSampler",
+        # sampler="BasinBatchSampler",
         scaler="DapengScaler",
         train_epoch=100,
         save_epoch=1,
@@ -108,7 +111,7 @@ def config():
         loss_param={
             "loss_funcs": "RMSESum",
             "data_gap": [0, 0],
-            "device": [1],
+            "device": [DEVICE],
             "item_weight": [0.8, 0.2],
         },
         opt="Adam",
@@ -119,7 +122,7 @@ def config():
         which_first_tensor="batch",
         calc_metrics=False,
         early_stopping=True,
-        rolling=True,
+        rolling=False,
         # ensemble=True,
         # ensemble_items={
         #     "batch_sizes": [256, 512],

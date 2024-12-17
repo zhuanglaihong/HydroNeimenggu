@@ -31,7 +31,7 @@ for logger_name in logging.root.manager.loggerDict:
     logger.setLevel(logging.INFO)
 
 show = pd.read_csv(
-    os.path.join(pathlib.Path(__file__).parent.parent, "data/basin_us.csv"),
+    os.path.join(pathlib.Path(__file__).parent.parent, "data/basin_us_and_neimeng.csv"),
     dtype={"id": str},
 )
 gage_id = show["id"].values.tolist()

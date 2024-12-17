@@ -30,6 +30,12 @@ def plot_precip_flow(
     font_prop = FontProperties(fname=font_path)
     rcParams["font.family"] = font_prop.get_name()
     rcParams["axes.unicode_minus"] = False
+    if time_style == "3h":
+        time_end = pd.to_datetime(time_end) + pd.Timedelta(hours=1)
+        time_start = pd.to_datetime(time_start) + pd.Timedelta(hours=1)
+    else:
+        time_start = pd.to_datetime(time_start)
+        time_end = pd.to_datetime(time_end)
     try:
         ds = xr.open_dataset(nc_file)
 
@@ -39,13 +45,45 @@ def plot_precip_flow(
 
         # 检查是否存在指定的basin_columns
         if target_basin_id in ds[basin_columns].values:
+            # print(f"Processing {nc_file} with basin_id {target_basin_id}")
 
             # 提取指定basin_id的数据
             basin_data = ds.sel({basin_columns: target_basin_id})
+            flow_obs = xr.open_dataset(flow_var_obs).sel(
+                {basin_columns: target_basin_id}
+            )["sm_surface"]
+
+            flow_pred = xr.open_dataset(flow_var_pred).sel(
+                {basin_columns: target_basin_id}
+            )["sm_surface"]
 
             # 如果有时间范围，进行时间筛选
             if time_start and time_end:
-                basin_data = basin_data.sel(time=slice(time_start, time_end))
+                try:
+                    # 获取 flow_obs 和 flow_pred 的时间范围
+                    flow_obs_time_range = flow_obs.time
+                    flow_pred_time_range = flow_pred.time
+
+                    # 确定 flow_obs 和 flow_pred 时间范围的交集
+                    flow_time_start = max(
+                        time_start,
+                        flow_obs_time_range.min().values,
+                        flow_pred_time_range.min().values,
+                    )
+                    flow_time_end = min(
+                        time_end,
+                        flow_obs_time_range.max().values,
+                        flow_pred_time_range.max().values,
+                    )
+
+                    # 使用调整后的时间范围选择 basin_data
+                    basin_data = basin_data.sel(
+                        time=slice(flow_time_start, flow_time_end)
+                    )
+
+                except Exception as e:
+                    print(f"Error: {e}")
+                    return None
 
             # 提取时间序列数据
             time = basin_data["time"]
@@ -55,12 +93,12 @@ def plot_precip_flow(
             flow_obs = (
                 xr.open_dataset(flow_var_obs)
                 .sel({basin_columns: target_basin_id})
-                .sel(time=slice(time_start, time_end))["streamflow"]
+                .sel(time=slice(flow_time_start, flow_time_end))["sm_surface"]
             )
             flow_pred = (
                 xr.open_dataset(flow_var_pred)
                 .sel({basin_columns: target_basin_id})
-                .sel(time=slice(time_start, time_end))["streamflow"]
+                .sel(time=slice(flow_time_start, flow_time_end))["sm_surface"]
             )
 
             station_dict = basin_info.set_index("basin_id")[
@@ -89,7 +127,7 @@ def plot_precip_flow(
             ax1.tick_params(axis="y", labelcolor="blue")
 
             # 只显示最大降水量的1/3
-            ax1.set_ylim(0, precip.max() * 3)
+            ax1.set_ylim(0, precip.max() * 5)
             ax1.invert_yaxis()  # 降水量图表倒置显示
 
             # 添加第二个y轴用于流量图
@@ -126,19 +164,23 @@ def plot_precip_flow(
                 linestyle="--",
                 label="预测值",
             )
-            ax2.set_ylabel("径流值 (m^3/s)", color="red", fontproperties=font_prop)
+            ax2.set_ylabel(
+                "土壤含水量（m^3/m^3）", color="red", fontproperties=font_prop
+            )
             ax2.tick_params(axis="y", labelcolor="red")
 
             # 设置标题和图例
             plt.title(
-                f"{target_basin_id}水文站 降雨与径流时序图", fontproperties=font_prop
+                f"{target_basin_id}水文站 降雨与土壤含水量时序图",
+                fontproperties=font_prop,
             )
 
             plt.legend(loc="upper left")
 
             plt.savefig(
-                f"{output_folder}/{target_basin_id}_{time_start}-{time_end}.png"
+                f"{output_folder}/{target_basin_id}_sm_surface_{time_start}-{time_end}.png"
             )
+
             # 关闭数据集
             ds.close()
         else:
@@ -211,16 +253,17 @@ def plot_based_on_events(time_unit, project_name):
         if nc_file is None:
             continue
         events_path = os.path.join(
-            events_folder_path, basin_id, f"{basin_id}_{time_unit}_events.csv"
+            events_folder_path, basin_id, f"{basin_id}_1D_events.csv"
         )
         events_dict = read_rainfall_events_summary(events_path)
+        print(events_dict)
         for event in events_dict[basin_id]:
             start_time = event["Start_Time"]
             end_time = event["End_Time"]
 
             plot_precip_flow(
                 basin_info,
-                os.path.join(RESULT_DIR, "events", basin_id),
+                os.path.join(RESULT_DIR, "events", basin_id, project_name),
                 nc_file,
                 "basin",
                 "total_precipitation_hourly",
@@ -239,4 +282,19 @@ def plot_based_on_events(time_unit, project_name):
 
 
 if __name__ == "__main__":
-    plot_based_on_events("1D", "test_with_camels_1D_era5land_stlflow")
+    for folder_name in os.listdir(RESULT_DIR):
+        print(folder_name)
+        if (
+            folder_name.startswith("test_with_")
+            and "1D" in folder_name
+            and "mtl" in folder_name
+        ):
+            print("plotting 1D")
+            plot_based_on_events("1D", folder_name)
+        elif (
+            folder_name.startswith("test_with_")
+            and "3h" in folder_name
+            and "mtl" in folder_name
+        ):
+            print("plotting 3h")
+            plot_based_on_events("3h", folder_name)

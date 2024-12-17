@@ -31,7 +31,9 @@ for logger_name in logging.root.manager.loggerDict:
     logger.setLevel(logging.INFO)
 
 show = pd.read_csv(
-    os.path.join(pathlib.Path(__file__).parent.parent, "data/basin_us_and_neimeng.csv"),
+    os.path.join(
+        pathlib.Path(__file__).parent.parent, "gage_ids/basin_us_and_neimeng.csv"
+    ),
     dtype={"id": str},
 )
 gage_id = show["id"].values.tolist()
@@ -62,7 +64,7 @@ def config():
             "de_input_size": 18,
             "output_size": 2,
             "hidden_size": 256,
-            "forecast_length": 56,
+            "forecast_length": 1,
             "prec_window": 1,
             "teacher_forcing_ratio": 0.5,
         },
@@ -71,7 +73,7 @@ def config():
         # gage_id=["21400800", "21401550", "21401300", "21401900"],
         batch_size=256,
         forecast_history=240,
-        forecast_length=56,
+        forecast_length=1,
         min_time_unit="h",
         min_time_interval=3,
         var_t=[
